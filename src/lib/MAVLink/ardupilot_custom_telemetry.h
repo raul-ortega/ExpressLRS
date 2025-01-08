@@ -3,7 +3,7 @@
 /**
  * Cordic Algo to transform cartesian coordinates into polar coordinates
  */
-void cordic_cartesion_to_polar(int32_t north, int32_t east, int32_t *out_phi, int32_t *out_radius);
+void cartesian_to_polar_coordinates(int32_t north_dm, int32_t east_dm, int32_t *out_phi_deg, int32_t *out_radius_dm);
 
 /*
  * Adapted from Ardupilot's AP_Frsky_SPort::prep_number()

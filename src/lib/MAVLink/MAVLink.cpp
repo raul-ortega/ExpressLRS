@@ -67,14 +67,14 @@ static void ap_send_crsf_passthrough_parameter(uint8_t param_id, uint32_t param_
 void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset *handset)
 {
     // Store the relative altitude for GPS altitude
-    static int32_t relative_alt = 0;
+    static int32_t relative_alt_mm = 0;
 
     // Store the throttle value for AP_STATUS concatenation
-    static uint32_t throttle = 0;
+    static uint32_t throttle_prc = 0;
 
     // Store the home position for distance and bearing calculation
-    static int32_t home_latitude = 0;
-    static int32_t home_longitude = 0;
+    static int32_t home_latitude_degE7 = 0;
+    static int32_t home_longitude_degE7 = 0;
 
     for (uint8_t i = 0; i < count; i++)
     {
@@ -122,7 +122,7 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 // mm -> meters + 1000
                 crsfgps.p.altitude = htobe16(gps_int.alt / 1000 + 1000);
 #else
-                crsfgps.p.altitude = htobe16((uint16_t)(relative_alt / 1000 + 1000));
+                crsfgps.p.altitude = htobe16((uint16_t)(relative_alt_mm / 1000 + 1000));
 #endif
                 // cm/s -> km/h / 10
                 crsfgps.p.groundspeed = htobe16(gps_int.vel * 36 / 100);
@@ -138,15 +138,15 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
 
 
                 // send the home message to Yaapu Telemetry Script
-                int32_t bearing = 0;
-                int32_t distance_to_home = 0;
-                if ((home_latitude != 0) && (home_longitude != 0)){
+                int32_t bearing_deg = 0;
+                int32_t distance_to_home_dm = 0;
+                if ((home_latitude_degE7 != 0) && (home_longitude_degE7 != 0)){
                     //accuracy of 0.1m is required for 1m accuracy ~0.3 accuracy of distance_to_home later
-                    int32_t north_dm = ((home_latitude - gps_int.lat) * 111318) / 1000000;
-                    int32_t east_dm = ((home_longitude - gps_int.lon) * 111318) / 1000000;
-                    cordic_cartesion_to_polar(north_dm, east_dm, &bearing, &distance_to_home);
+                    int32_t north_dm = ((home_latitude_degE7 - gps_int.lat) * 111318) / 1000000;
+                    int32_t east_dm = ((home_longitude_degE7 - gps_int.lon) * 111318) / 1000000;
+                    cartesian_to_polar_coordinates(north_dm, east_dm, &bearing_deg, &distance_to_home_dm);
                 }
-                ap_send_crsf_passthrough_single(0x5004, format_home(distance_to_home, relative_alt/100, bearing));
+                ap_send_crsf_passthrough_single(0x5004, format_home(distance_to_home_dm, relative_alt_mm/100, bearing_deg));
                 break;
             }
             case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
@@ -155,7 +155,7 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 CRSF_MK_FRAME_T(crsf_sensor_vario_t)
                 crsfvario = {0};
                 // store relative altitude for GPS Alt so we don't have 2 Alt sensors
-                relative_alt = global_pos.relative_alt;
+                relative_alt_mm = global_pos.relative_alt;
                 crsfvario.p.verticalspd = htobe16(-global_pos.vz); // MAVLink vz is positive down
                 CRSF::SetHeaderAndCrc((uint8_t *)&crsfvario, CRSF_FRAMETYPE_VARIO, CRSF_FRAME_SIZE(sizeof(crsf_sensor_vario_t)), CRSF_ADDRESS_CRSF_TRANSMITTER);
                 handset->sendTelemetryToTX((uint8_t *)&crsfvario);
@@ -198,7 +198,7 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                  * Otherwise the Yaapu script will not display flightmode until the next heartbeat is received.
                  */
                 ap_send_crsf_passthrough_parameter(1, heartbeat.type);
-                ap_send_crsf_passthrough_single(0x5001, format_ap_status(heartbeat.base_mode, heartbeat.custom_mode, heartbeat.system_status, throttle));
+                ap_send_crsf_passthrough_single(0x5001, format_ap_status(heartbeat.base_mode, heartbeat.custom_mode, heartbeat.system_status, throttle_prc));
                 break;
             }
             case MAVLINK_MSG_ID_STATUSTEXT: {
@@ -212,7 +212,7 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 mavlink_vfr_hud_t vfr_hud;
                 mavlink_msg_vfr_hud_decode(&msg, &vfr_hud);
                 // stash the throttle value
-                throttle = vfr_hud.throttle;
+                throttle_prc = vfr_hud.throttle;
                 // send the velocity and yaw message to Yaapu Telemetry Script
                 ap_send_crsf_passthrough_single(0x5005, format_velandyaw(vfr_hud.climb, vfr_hud.groundspeed, vfr_hud.heading));
                 break;
@@ -220,8 +220,8 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
             case MAVLINK_MSG_ID_HOME_POSITION: {
                 mavlink_home_position_t home_pos;
                 mavlink_msg_home_position_decode(&msg, &home_pos);
-                home_latitude = home_pos.latitude;
-                home_longitude = home_pos.longitude;
+                home_latitude_degE7 = home_pos.latitude;
+                home_longitude_degE7 = home_pos.longitude;
                 break;
             }
             case MAVLINK_MSG_ID_ALTITUDE: {

@@ -18,7 +18,7 @@
  * static lookup for the angle corresponding tan(2^-i) * 1000
  * essentially the degree that corresponds to a tan(degree) = [1, 0.5, 0.25, 0.125 0.0625, ...]
  */
-static uint16_t lookup_theta[NUMBER_OF_CORDIC_ITERATIONS] = {45000, 26565, 14036, 7125, 3576, 1789};
+static const uint16_t lookup_theta[NUMBER_OF_CORDIC_ITERATIONS] = {45000, 26565, 14036, 7125, 3576, 1789};
 
 /**
  * COS(degree) of phi [0.7071067811865476, 0.8944271909999159, 0.9701425001453319, 0.9922778767136676, 0.9980525784828885, 0.9995120760870788]
@@ -30,12 +30,12 @@ static uint16_t lookup_theta[NUMBER_OF_CORDIC_ITERATIONS] = {45000, 26565, 14036
  * Cordic Algo to transform cartesian coordinates into polar coordinates
  * Yields about 1 deg accuracy of PHI and 3 unit accuracy of the RADIUS, i.e. input decimeter for meter accuracy.
  */
-void cordic_cartesion_to_polar(int32_t north, int32_t east, int32_t *out_phi, int32_t *out_radius)
+void cartesian_to_polar_coordinates(int32_t north_dm, int32_t east_dm, int32_t *out_phi_deg, int32_t *out_radius_dm)
 {
     int8_t sign = 0;
     int32_t theta = 0;
-    int32_t x = east;
-    int32_t y = north;
+    int32_t x = east_dm;
+    int32_t y = north_dm;
     int32_t nx = 0;
     int32_t ny = 0;    
     int32_t phi = 0;
@@ -78,8 +78,8 @@ void cordic_cartesion_to_polar(int32_t north, int32_t east, int32_t *out_phi, in
     // Vector Length Correction
     radius = (x * KFACTOR1000) / 1000;
 
-    *out_phi = phi;
-    *out_radius = radius;
+    *out_phi_deg = phi;
+    *out_radius_dm = radius;
     return;
 }
 
