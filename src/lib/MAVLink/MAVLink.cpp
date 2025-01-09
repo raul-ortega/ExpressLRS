@@ -136,17 +136,22 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 // send the gps_status message to Yaapu Telemetry Script
                 ap_send_crsf_passthrough_single(0x5002, format_gps_status(gps_int.fix_type, gps_int.alt, gps_int.eph, gps_int.satellites_visible));
 
-
-                // send the home message to Yaapu Telemetry Script
-                int32_t bearing_deg = 0;
-                int32_t distance_to_home_dm = 0;
-                if ((home_latitude_degE7 != 0) && (home_longitude_degE7 != 0)){
-                    //accuracy of 0.1m is required for 1m accuracy ~0.3 accuracy of distance_to_home later
-                    int32_t north_dm = ((home_latitude_degE7 - gps_int.lat) * 111318) / 1000000;
-                    int32_t east_dm = ((home_longitude_degE7 - gps_int.lon) * 111318) / 1000000;
-                    cartesian_to_polar_coordinates(north_dm, east_dm, &bearing_deg, &distance_to_home_dm);
+                static uint32_t next_home_send = 0U;
+                uint32_t const now = millis();
+                if (now > next_home_send){// limit to 1 second
+                    next_home_send = now + 1000U;
+                
+                    // send the home message to Yaapu Telemetry Script
+                    int32_t bearing_deg = 0;
+                    int32_t distance_to_home_dm = 0;
+                    if ((home_latitude_degE7 != 0) && (home_longitude_degE7 != 0)){
+                        //accuracy of 0.1m is required for 1m accuracy ~0.3 accuracy of distance_to_home later
+                        int32_t north_dm = ((home_latitude_degE7 - gps_int.lat) * 111318) / 1000000;
+                        int32_t east_dm = ((home_longitude_degE7 - gps_int.lon) * 111318) / 1000000;
+                        cartesian_to_polar_coordinates(north_dm, east_dm, &bearing_deg, &distance_to_home_dm);
+                    }
+                    ap_send_crsf_passthrough_single(0x5004, format_home(distance_to_home_dm, relative_alt_mm/100, bearing_deg));
                 }
-                ap_send_crsf_passthrough_single(0x5004, format_home(distance_to_home_dm, relative_alt_mm/100, bearing_deg));
                 break;
             }
             case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
@@ -232,10 +237,15 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 break;
             }
             case MAVLINK_MSG_ID_HIGH_LATENCY2: {
-                mavlink_high_latency2_t high_latency_data;
-                mavlink_msg_high_latency2_decode(&msg, &high_latency_data);
-                // send the waypoint message to Yaapu Telemetry Script
-                ap_send_crsf_passthrough_single(0x500D, format_waypoint(high_latency_data.target_heading, high_latency_data.target_distance, high_latency_data.wp_num));
+                static uint32_t next_waypoint_send = 0U;
+                uint32_t const now = millis();
+                if (now > next_waypoint_send){// limit to 1 second
+                    next_waypoint_send = now + 1000U;
+                    mavlink_high_latency2_t high_latency_data;
+                    mavlink_msg_high_latency2_decode(&msg, &high_latency_data);
+                    // send the waypoint message to Yaapu Telemetry Script
+                    ap_send_crsf_passthrough_single(0x500D, format_waypoint(high_latency_data.target_heading, high_latency_data.target_distance, high_latency_data.wp_num));
+                }
                 break;
             }
             }
