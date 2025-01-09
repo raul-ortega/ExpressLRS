@@ -107,9 +107,13 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 crsfbatt.p.remaining = battery_status.battery_remaining;
                 CRSF::SetHeaderAndCrc((uint8_t *)&crsfbatt, CRSF_FRAMETYPE_BATTERY_SENSOR, CRSF_FRAME_SIZE(sizeof(crsf_sensor_battery_t)), CRSF_ADDRESS_CRSF_TRANSMITTER);
                 handset->sendTelemetryToTX((uint8_t *)&crsfbatt);
-
-                // send the batt1 message to Yaapu Telemetry Script
-                ap_send_crsf_passthrough_single(0x5003, format_batt1(battery_status.voltages[0], battery_status.current_battery, battery_status.current_consumed));
+                static uint32_t next_batt_send = 0U;
+                uint32_t const now = millis();
+                if (now > next_batt_send){// limit to 1 second
+                    next_batt_send = now + 1000U;
+                    // send the batt1 message to Yaapu Telemetry Script
+                    ap_send_crsf_passthrough_single(0x5003, format_batt1(battery_status.voltages[0], battery_status.current_battery, battery_status.current_consumed));
+                }
                 break;
             }
             case MAVLINK_MSG_ID_GPS_RAW_INT: {
@@ -205,8 +209,13 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                  * 2. send the ap_status message to Yaapu Telemetry Script
                  * Otherwise the Yaapu script will not display flightmode until the next heartbeat is received.
                  */
-                ap_send_crsf_passthrough_parameter(1, heartbeat.type);
-                ap_send_crsf_passthrough_single(0x5001, format_ap_status(heartbeat.base_mode, heartbeat.custom_mode, heartbeat.system_status, throttle_prc));
+                static uint32_t next_ap_status_send = 0U;
+                uint32_t const now = millis();
+                if (now > next_ap_status_send){// limit to 1 second
+                    next_ap_status_send = now + 1000U;
+                    ap_send_crsf_passthrough_parameter(1, heartbeat.type);
+                    ap_send_crsf_passthrough_single(0x5001, format_ap_status(heartbeat.base_mode, heartbeat.custom_mode, heartbeat.system_status, throttle_prc));
+                }
                 break;
             }
             case MAVLINK_MSG_ID_STATUSTEXT: {
@@ -217,12 +226,17 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 break;
             }
             case MAVLINK_MSG_ID_VFR_HUD: {
-                mavlink_vfr_hud_t vfr_hud;
-                mavlink_msg_vfr_hud_decode(&msg, &vfr_hud);
-                // stash the throttle value
-                throttle_prc = vfr_hud.throttle;
-                // send the velocity and yaw message to Yaapu Telemetry Script
-                ap_send_crsf_passthrough_single(0x5005, format_velandyaw(vfr_hud.climb, vfr_hud.groundspeed, vfr_hud.heading));
+                static uint32_t next_velyaw_send = 0U;
+                uint32_t const now = millis();
+                if (now > next_velyaw_send){// limit to 1 second
+                    next_velyaw_send = now + 1000U;
+                    mavlink_vfr_hud_t vfr_hud;
+                    mavlink_msg_vfr_hud_decode(&msg, &vfr_hud);
+                    // stash the throttle value
+                    throttle_prc = vfr_hud.throttle;
+                    // send the velocity and yaw message to Yaapu Telemetry Script
+                    ap_send_crsf_passthrough_single(0x5005, format_velandyaw(vfr_hud.climb, vfr_hud.groundspeed, vfr_hud.heading));
+                }
                 break;
             }
             case MAVLINK_MSG_ID_HOME_POSITION: {
