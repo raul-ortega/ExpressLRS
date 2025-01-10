@@ -132,14 +132,15 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 crsfgps.p.satellites_in_use = gps_int.satellites_visible;
                 CRSF::SetHeaderAndCrc((uint8_t *)&crsfgps, CRSF_FRAMETYPE_GPS, CRSF_FRAME_SIZE(sizeof(crsf_sensor_gps_t)), CRSF_ADDRESS_CRSF_TRANSMITTER);
                 handset->sendTelemetryToTX((uint8_t *)&crsfgps);
+
+                // send the gps_status message to Yaapu Telemetry Script
+                ap_send_crsf_passthrough_single(0x5002, format_gps_status(gps_int.fix_type, gps_int.alt, gps_int.eph, gps_int.satellites_visible));
+
                 static uint32_t next_home_send = 0U;
                 uint32_t const now = millis();
                 if (now > next_home_send){// limit to 1 second
                     next_home_send = now + 1000U;
-
-                    // send the gps_status message to Yaapu Telemetry Script
-                    ap_send_crsf_passthrough_single(0x5002, format_gps_status(gps_int.fix_type, gps_int.alt, gps_int.eph, gps_int.satellites_visible));
-
+                
                     // send the home message to Yaapu Telemetry Script
                     int32_t bearing_deg = 0;
                     int32_t distance_to_home_dm = 0;
@@ -175,13 +176,9 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 crsfatt.p.yaw = htobe16(attitude.yaw * 10000);
                 CRSF::SetHeaderAndCrc((uint8_t *)&crsfatt, CRSF_FRAMETYPE_ATTITUDE, CRSF_FRAME_SIZE(sizeof(crsf_sensor_attitude_t)), CRSF_ADDRESS_CRSF_TRANSMITTER);
                 handset->sendTelemetryToTX((uint8_t *)&crsfatt);
-                static uint32_t next_attitude_send = 0U;
-                uint32_t const now = millis();
-                if (now > next_attitude_send){// limit to 1 second
-                    next_attitude_send = now + 1000U;
-                    // send the attitude message to Yaapu Telemetry Script
-                    ap_send_crsf_passthrough_single(0x5006, format_attiandrng(attitude.pitch, attitude.roll));
-                }
+
+                // send the attitude message to Yaapu Telemetry Script
+                ap_send_crsf_passthrough_single(0x5006, format_attiandrng(attitude.pitch, attitude.roll));
                 break;
             }
             case MAVLINK_MSG_ID_HEARTBEAT: {
@@ -233,15 +230,10 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 break;
             }
             case MAVLINK_MSG_ID_ALTITUDE: {
-                static uint32_t next_terrain_send = 0U;
-                uint32_t const now = millis();
-                if (now > next_terrain_send){// limit to 1 second
-                    next_terrain_send = now + 1000U;
-                    mavlink_altitude_t altitude_data;
-                    mavlink_msg_altitude_decode(&msg, &altitude_data);
-                    // send the terrain message to Yaapu Telemetry Script
-                    ap_send_crsf_passthrough_single(0x500B, format_terrain(altitude_data.altitude_terrain));
-                }
+                mavlink_altitude_t altitude_data;
+                mavlink_msg_altitude_decode(&msg, &altitude_data);
+                // send the terrain message to Yaapu Telemetry Script
+                ap_send_crsf_passthrough_single(0x500B, format_terrain(altitude_data.altitude_terrain));
                 break;
             }
             case MAVLINK_MSG_ID_HIGH_LATENCY2: {
