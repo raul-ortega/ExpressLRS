@@ -78,18 +78,16 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
 
 
     #define REFRESH_TIME_MS 500
-    static uint32_t time_last = 0U;
-
+    uint32_t time_last = 0U;
     uint32_t time_now = 0U;
     uint8_t i = 0;
-    bool have_message = false;
 
     while (i < count) {
 
         mavlink_message_t msg;
         mavlink_status_t status;
 
-        have_message = mavlink_frame_char(MAVLINK_COMM_0, CRSFinBuffer[CRSF_FRAME_NOT_COUNTED_BYTES + i], &msg, &status);
+        bool have_message = mavlink_frame_char(MAVLINK_COMM_0, CRSFinBuffer[CRSF_FRAME_NOT_COUNTED_BYTES + i], &msg, &status);
         i++;
 
         if (have_message)
@@ -101,7 +99,7 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                 time_last = time_now;
 
                 // Only parse heartbeats from the autopilot (not GCS)
-                if (msg.compid == MAV_COMP_ID_AUTOPILOT1)
+                if (msg.compid != MAV_COMP_ID_AUTOPILOT1)
                 {
                     continue;
                 }
@@ -257,7 +255,7 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
                         break;
                     }
                 }
-                }
+            }
         }
     }
 }
