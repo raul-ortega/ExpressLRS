@@ -77,7 +77,7 @@ void convert_mavlink_to_crsf_telem(uint8_t *CRSFinBuffer, uint8_t count, Handset
     static int32_t home_longitude_degE7 = 0;
 
 
-    #define REFRESH_TIME_MS 500
+    #define REFRESH_TIME_MS 50
     uint32_t time_last = 0U;
     uint32_t time_now = 0U;
     uint8_t i = 0;
